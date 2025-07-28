@@ -1,0 +1,26 @@
+/* ───────────── Animaciones ───────────── */
+@keyframes pawWave {
+  0%,100% { transform: translateY(0) rotate(0deg); }
+  50%     { transform: translateY(-3px) rotate(-10deg); }
+}
+
+@keyframes wiggle {
+  0%,100% { transform: rotate(-3deg); }
+  50%     { transform: rotate(3deg); }
+}
+
+/* ───────────── Huella dentro del input ───────────── */
+.paw-icon {
+  transition: color .3s ease, transform .3s ease;
+}
+
+.input-group:focus-within .paw-icon {
+  color: #AE29FF;                /* cambia a morado */
+  animation: pawWave .6s ease-in-out;
+}
+
+/* ───────────── Botón “wobble” ───────────── */
+.wiggle-btn:hover,
+.wiggle-btn:active {
+  animation: wiggle .4s ease-in-out;
+}
