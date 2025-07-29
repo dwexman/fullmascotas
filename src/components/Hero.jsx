@@ -63,8 +63,7 @@ export default function Hero() {
               className="
       relative z-20
       drop-shadow-[0_0_4px_rgba(0,0,0,0.6)]
-      whitespace-nowrap
-      text-2xl sm:text-3xl lg:text-4xl  
+       
     "
             >
               Saber precios y&nbsp;agendamiento
