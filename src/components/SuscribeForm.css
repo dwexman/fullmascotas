@@ -15,7 +15,7 @@
 }
 
 .input-group:focus-within .paw-icon {
-  color: #AE29FF;                /* cambia a morado */
+  color: #AE29FF;                
   animation: pawWave .6s ease-in-out;
 }
 
