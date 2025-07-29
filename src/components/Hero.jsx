@@ -33,7 +33,7 @@ export default function Hero() {
       <div className="flex flex-col lg:flex-row flex-1 items-center lg:items-start px-6 lg:px-20 gap-10 lg:gap-16">
         <div className="w-full lg:w-1/2 flex flex-col items-center lg:items-start text-center lg:text-left mt-10 lg:mt-24">
           <h1 className="order-1 slide-in-hero text-5xl sm:text-6xl lg:text-9xl font-extrabold mb-10">
-            Full&nbsp;Mascotas
+            Full&nbsp;Mascotas Peluquería Canina
           </h1>
 
           <p className="order-3 lg:order-2 text-lg sm:text-xl lg:text-3xl mb-12 max-w-md lg:max-w-none">
@@ -41,12 +41,51 @@ export default function Hero() {
             con nuestro servicio profesional de peluquería sin estrés.
           </p>
 
+
           <a
             href="#booking"
-            className="order-4 bg-gray-50 hover:bg-gray-100 text-[#AE29FF] font-bold text-lg sm:text-xl py-5 px-16 rounded-xl shadow-lg transition wobble-hover"
+            className="
+    order-4 relative inline-block isolate
+    px-16 sm:px-20 py-5
+    font-extrabold text-lg sm:text-2xl md:text-3xl lg:text-3xl
+    text-white whitespace-nowrap
+    bg-[#3C0260]
+    rounded-xl                  
+    ring-4 ring-pink-400/70 hover:ring-pink-300/80
+    shadow-lg hover:bg-[#4B047C]
+    transition animate-pulse hover:animate-none
+    overflow-hidden             
+    group
+  "
           >
-            Quiero recibir Descuentos
+            {/* TEXTO */}
+            <span
+              className="
+      relative z-20
+      drop-shadow-[0_0_4px_rgba(0,0,0,0.6)]
+      whitespace-nowrap
+      text-2xl sm:text-3xl lg:text-4xl  
+    "
+            >
+              Saber precios y&nbsp;agendamiento
+            </span>
+
+            {/* GLOW */}
+            <span
+              className="
+      absolute inset-0
+      rounded-xl
+      -z-10                   
+      blur-md opacity-70
+      bg-gradient-to-r from-pink-400 via-fuchsia-500 to-purple-500
+      pointer-events-none        
+      transition-opacity duration-300
+      group-hover:opacity-100
+    "
+              aria-hidden="true"
+            />
           </a>
+
           <img
             src={huella}
             alt="Huella decorativa"
