@@ -32,7 +32,7 @@ export default function Hero() {
       {/* BLOQUE PRINCIPAL */}
       <div className="flex flex-col lg:flex-row flex-1 items-center lg:items-start px-6 lg:px-20 gap-10 lg:gap-16">
         <div className="w-full lg:w-1/2 flex flex-col items-center lg:items-start text-center lg:text-left mt-10 lg:mt-24">
-          <h1 className="order-1 slide-in-hero text-5xl sm:text-6xl lg:text-9xl font-extrabold mb-10">
+          <h1 className="order-1 slide-in-hero text-4xl sm:text-5xl lg:text-8xl font-extrabold mb-10">
             Full&nbsp;Mascotas Peluquería Canina
           </h1>
 
@@ -46,7 +46,7 @@ export default function Hero() {
             href="#booking"
             className="
     order-4 relative inline-block isolate
-    px-16 sm:px-20 py-5
+    px-10 sm:px-12 py-5
     font-extrabold text-lg sm:text-2xl md:text-3xl lg:text-3xl
     text-white whitespace-nowrap
     bg-[#3C0260]
