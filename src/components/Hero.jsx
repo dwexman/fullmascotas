@@ -12,13 +12,6 @@ export default function Hero() {
       className="relative flex flex-col min-h-screen overflow-hidden text-white"
       style={{ backgroundColor: "#AE29FF" }}
     >
-      {/* BURBUJAS */}
-      <div className="bubble bubble--sm -left-24  bottom-12   bubble-delay-1" />
-      <div className="bubble bubble--md -left-40  bottom-1/4 bubble-delay-2" />
-      <div className="bubble bubble--lg -left-48  bottom-1/2 bubble-delay-3" />
-      <div className="bubble bubble--sm -left-28  bottom-2/3 bubble-delay-4" />
-      <div className="bubble bubble--md -left-36  bottom-[75%] bubble-delay-5" />
-      <div className="bubble bubble--lg -left-60  bottom-[85%] bubble-delay-6" />
 
       {/*  LOGO  */}
       <div className="flex justify-between items-center px-6 py-4">

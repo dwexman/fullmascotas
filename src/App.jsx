@@ -5,10 +5,12 @@ import Gallery from "./components/Gallery";
 import FloatingWhatsApp from "./components/FloatingWhatsapp";
 import Footer from "./components/Footer";
 import "./App.css";
+import Bubbles from "./components/Bubbles";
 
 export default function App() {
   return (
     <>
+      <Bubbles />
       <Hero />
       <SubscribeSection /> 
       <Services />

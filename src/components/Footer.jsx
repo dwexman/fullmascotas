@@ -2,7 +2,7 @@ import logo from "../assets/images/logofullmasc.png";
 
 export default function Footer() {
   return (
-    <footer className="relative bg-gray-50 py-12 px-6">
+    <footer className="relative bg-[#AE29FF] py-12 px-6">
       <img
         src={logo}
         alt="Full Mascotas"

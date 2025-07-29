@@ -5,7 +5,7 @@ export default function SubscribeSection() {
   return (
     <section
       id="booking"
-      className="relative py-24 px-6 bg-[#AE29FF]"
+      className="relative pt-24 pb-2 px-6 bg-[#AE29FF]"
     >
       {/* Huellas decorativas  */}
       <div

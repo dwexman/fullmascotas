@@ -58,7 +58,7 @@ const services = [
 
 export default function Services() {
   return (
-    <section className="py-24 px-6 bg-[#AE29FF]" id="services">
+    <section className="pt-24 pb-2 px-6 bg-[#AE29FF] text-white" id="services">
       <h2 className="text-4xl sm:text-5xl font-extrabold text-center mb-16">
         Nuestros Servicios
       </h2>
@@ -70,7 +70,7 @@ export default function Services() {
               key={title}
               whileHover={{ y: -8, rotate: -1 }}
               transition={{ type: "spring", stiffness: 260, damping: 18 }}
-              className={`${colorFrom} ${colorTo} bg-gradient-to-br rounded-3xl p-[3px] shadow-lg`}
+              className={`${colorFrom} ${colorTo} bg-gradient-to-br rounded-3xl p-[5px] shadow-lg`}
             >
               {/* inner card */}
               <div className="bg-white rounded-[inherit] h-full p-8 flex flex-col text-center">
