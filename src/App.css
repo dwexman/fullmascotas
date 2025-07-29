@@ -7,9 +7,9 @@ body {
 /* ---------- BURBUJAS ---------- */
 
 @keyframes bubbleFloat {
-  0%   { transform: translate(-30%, 0) scale(0); opacity: 0; }
+  0%   { transform: translate(-30%, 0) scale(0);   opacity: 0; }
   30%  { opacity: .9; }
-  100% { transform: translate(130vw,-130vh) scale(1.4); opacity: 0; }
+  100% { transform: translate(130vw, -130vh) scale(1.4); opacity: 0; }
 }
 
 .bubble {
@@ -17,13 +17,17 @@ body {
   border-radius: 50%;
   pointer-events: none;
   background: radial-gradient(35% 35% at 30% 30%,
-              rgba(255,255,255,.9) 0%, rgba(255,255,255,.4) 60%,
+              rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.4) 60%,
               rgba(255,255,255,0) 80%);
-  box-shadow: inset -8px -8px 12px rgba(255,255,255,.4),
-              inset  4px  4px  8px rgba(0,0,0,.07);
+  box-shadow: inset -8px -8px 12px rgba(255,255,255,0.4),
+              inset  4px  4px  8px rgba(0,0,0,0.07);
   backdrop-filter: blur(1px);
-  animation: bubbleFloat 16s linear infinite; 
-  mix-blend-mode: screen;
+
+  opacity: 0;
+  transform: translate(-30%, 0) scale(0);
+
+  animation: bubbleFloat var(--dur,16s) linear infinite;
+  animation-fill-mode: forwards;
 }
 
 /* tamaños */
