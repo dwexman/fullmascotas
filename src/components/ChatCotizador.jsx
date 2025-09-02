@@ -1,9 +1,36 @@
-import React, { useEffect, useMemo, useState } from "react";
+// src/components/ChatCotizador.jsx
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
-/** Lee tu Google Sheet publicado */
+/** Catálogo desde Google Sheets */
 const SHEET_ID = "1foqUZfS2adXdXFd2Z3kptwsoP9ITNFwHNIfoJtxp2UM";
 
-/* --------------------- util: fetch CSV de Google Sheets --------------------- */
+/** Tu Web App URL (Apps Script) */
+const API_ENDPOINT =
+  "https://script.google.com/macros/s/AKfycbxBH31AgaVtXoqLxn_-gGw5i_6CBSvzvG6y5Fmny7uSuv9uUM43ymbXZN4s5yGf4Uew/exec";
+
+/* --------------------- API helper (CORS-safe) --------------------- */
+async function apiPost(payload) {
+  try {
+    // Evitar preflight: form-urlencoded + no headers custom + no-cors
+    const body = new URLSearchParams();
+    body.append("payload", JSON.stringify(payload));
+
+    await fetch(API_ENDPOINT, {
+      method: "POST",
+      mode: "no-cors",
+      body,
+      redirect: "follow",
+    });
+
+    console.log("API SENT:", payload.op);
+    return { ok: true };
+  } catch (e) {
+    console.warn("API error", e);
+    return { ok: false, error: String(e) };
+  }
+}
+
+/* --------------------- fetch CSV de Google Sheets --------------------- */
 async function fetchCsv(sheetName) {
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(
     sheetName
@@ -19,24 +46,20 @@ function csvToObjects(csv) {
   let cur = [], field = "", inQuotes = false;
   const pushField = () => { cur.push(field); field = ""; };
   const pushRow = () => { rows.push(cur); cur = []; };
-
   for (let i = 0; i < csv.length; i++) {
     const c = csv[i], n = csv[i + 1];
     if (inQuotes) {
       if (c === '"' && n === '"') { field += '"'; i++; }
-      else if (c === '"') { inQuotes = false; }
-      else { field += c; }
+      else if (c === '"') inQuotes = false;
+      else field += c;
     } else {
       if (c === '"') inQuotes = true;
       else if (c === ",") pushField();
-      else if (c === "\n" || c === "\r") {
-        if (c === "\r" && n === "\n") i++;
-        pushField(); pushRow();
-      } else { field += c; }
+      else if (c === "\n" || c === "\r") { if (c === "\r" && n === "\n") i++; pushField(); pushRow(); }
+      else field += c;
     }
   }
   if (field.length || cur.length) { pushField(); pushRow(); }
-
   if (!rows.length) return [];
   const headers = rows[0].map((h) => String(h).trim());
   return rows
@@ -49,7 +72,7 @@ function csvToObjects(csv) {
     });
 }
 
-/* --------------------- util: pricing rules --------------------- */
+/* --------------------- pricing rules --------------------- */
 function match(ruleVal, answerVal) {
   const rv = String(ruleVal ?? "").trim().toLowerCase();
   const av = String(answerVal ?? "").trim().toLowerCase();
@@ -69,8 +92,7 @@ function computePriceByRules(ans, rules) {
       match(r.coat_key, ans.coat_type) &&
       match(r.cond_key, ans.coat_condition)
   );
-  if (!cand.length) return 33000; // fallback
-
+  if (!cand.length) return 33000;
   const scored = cand
     .map((r) => {
       const spec =
@@ -82,25 +104,20 @@ function computePriceByRules(ans, rules) {
       return { ...r, _spec: spec, _prio: prio };
     })
     .sort((a, b) => b._spec - a._spec || b._prio - a._prio);
-
   const n = parseCLP(scored[0].price_clp);
   return Number.isFinite(n) ? n : 33000;
 }
 const CLP = (n) => {
-  try { return Number(n).toLocaleString("es-CL"); }
-  catch { return String(n); }
+  try { return Number(n).toLocaleString("es-CL"); } catch { return String(n); }
 };
 
-/* --------------------- util: teléfono CL --------------------- */
+/* --------------------- validaciones --------------------- */
 const CL_PHONE_REGEX = /^\+56\d{9}$/;
-// Limpia todo excepto + y dígitos
 function sanitizePhone(v) {
   let s = (v || "").replace(/[^\d+]/g, "");
-  // solo un '+' al inicio
   if (s.includes("+")) s = "+" + s.replace(/\+/g, "");
   return s;
 }
-// Normaliza en blur: 9xxxxxxxx -> +569xxxxxxxx ; 56... -> +56...
 function normalizePhone(v) {
   let s = (v || "").replace(/\s+/g, "");
   if (!s) return s;
@@ -112,10 +129,17 @@ function normalizePhone(v) {
   if (s.startsWith("9")) return "+569" + s.slice(1);
   return s;
 }
+function validEmail(v) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || '').trim());
+}
 
 /* ========================================================================= */
-export default function ChatCotizador({ calendlyUrl, onClose, whatsappUrl }) {
-  /* --- datos del sheet --- */
+export default function ChatCotizador({
+  onClose,
+  whatsappUrl = "https://wa.me/56986125581?text=" +
+  encodeURIComponent("¡Hola! Quiero agendar con un especialista de Full Mascotas 🐾"),
+}) {
+  /* catálogos */
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [services, setServices] = useState([]);
@@ -125,29 +149,38 @@ export default function ChatCotizador({ calendlyUrl, onClose, whatsappUrl }) {
   const [rules, setRules] = useState([]);
   const [faqs, setFaqs] = useState([]);
 
-
-  /* --- conversación --- */
+  /* conversación */
   const [messages, setMessages] = useState([]);
-  const [step, setStep] = useState("lead"); // empezamos pidiendo datos de contacto
-  const [history, setHistory] = useState([]); // pila para volver atrás
+  const [step, setStep] = useState("lead");
+  const [history, setHistory] = useState([]);
   const [free, setFree] = useState("");
-  const [pendingAction, setPendingAction] = useState(null);
   const [confirmExit, setConfirmExit] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null);
 
-  /* --- lead --- */
+  /* lead */
   const [leadName, setLeadName] = useState("");
   const [leadPhone, setLeadPhone] = useState("");
+  const [leadEmail, setLeadEmail] = useState("");
 
   const phoneSanitized = sanitizePhone(leadPhone);
   const phoneNormalized = normalizePhone(phoneSanitized);
   const phoneValid = CL_PHONE_REGEX.test(phoneNormalized);
+  const emailValid = validEmail(leadEmail);
 
-  /* --- respuestas --- */
+  /* flag para no duplicar escritura */
+  const leadSavedRef = useRef(false);
+
+  /* cotización */
   const [ans, setAns] = useState({
-    service: null, size: null, coat_type: null, coat_condition: null, day: null, price: 0,
+    service: null,
+    size: null,
+    coat_type: null,
+    coat_condition: null,
+    day: null,
+    price: 0,
   });
 
-  /* cargar desde el Sheet */
+  /* cargar catálogos */
   useEffect(() => {
     (async () => {
       try {
@@ -163,17 +196,25 @@ export default function ChatCotizador({ calendlyUrl, onClose, whatsappUrl }) {
         setLoading(false);
       } catch (e) {
         console.error(e);
-        setErr("No pude leer tu Sheet. Asegúrate de publicar el documento completo y revisar nombres de pestaña.");
+        setErr("No pude leer tu Sheet. Revisa: Archivo → Publicar en la Web y nombres de pestañas.");
         setLoading(false);
       }
     })();
+  }, []);
+
+  /* conversation id */
+  const conversationRef = useRef(null);
+  useEffect(() => {
+    if (!conversationRef.current) {
+      conversationRef.current = `fm_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    }
   }, []);
 
   /* helpers chat */
   const pushBot = (html) => setMessages((m) => [...m, { who: "bot", html }]);
   const pushUser = (html) => setMessages((m) => [...m, { who: "user", html }]);
 
-  /* navegación: ir a paso y volver */
+  /* navegación */
   function goTo(next) { setHistory((h) => [...h, step]); setStep(next); }
   function goBack() {
     setHistory((h) => {
@@ -184,12 +225,13 @@ export default function ChatCotizador({ calendlyUrl, onClose, whatsappUrl }) {
     });
   }
 
-  /* saludo del paso lead */
+  /* saludo lead */
   useEffect(() => {
     if (!loading && !err && step === "lead") {
       setMessages([]);
-      pushBot("¡Hola! 👋 Antes de empezar, cuéntame tu <b>nombre</b> y tu <b>WhatsApp</b> (con <b>+56</b>) para registrarte.");
+      pushBot("¡Hola! 👋 Antes de empezar, cuéntame tu <b>nombre</b>, tu <b>WhatsApp</b> (con <b>+56</b>) y tu <b>correo</b> para registrarte.");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, err, step]);
 
   /* botones según paso */
@@ -201,26 +243,50 @@ export default function ChatCotizador({ calendlyUrl, onClose, whatsappUrl }) {
         { label: "Preguntas frecuentes", action: "faq" },
       ];
     }
-    if (step === "service") return services.map((r) => ({ label: r.label, action: `service:${r.label}` }));
-    if (step === "size") return sizes.map((r) => ({ label: r.label, action: `size:${r.label}` }));
-    if (step === "coat_type") return coatTypes.map((r) => ({ label: r.label, action: `coat_type:${r.label}` }));
-    if (step === "coat_condition") return coatCond.map((r) => ({ label: r.label, action: `coat_condition:${r.label}` }));
-    if (step === "faq_menu") return faqs.map((r) => ({ label: r.question, action: `faq_q:${r.question}` }));
-    if (step === "confirm") return [{ label: "Sí, agendar", action: "agenda_si" }, { label: "No por ahora", action: "agenda_no" }];
+    if (step === "service")
+      return services.map((r) => ({ label: r.label, action: `service:${r.label}` }));
+    if (step === "size")
+      return sizes.map((r) => ({ label: r.label, action: `size:${r.label}` }));
+    if (step === "coat_type")
+      return coatTypes.map((r) => ({ label: r.label, action: `coat_type:${r.label}` }));
+    if (step === "coat_condition")
+      return coatCond.map((r) => ({ label: r.label, action: `coat_condition:${r.label}` }));
+    if (step === "faq_menu")
+      return faqs.map((r) => ({ label: r.question, action: `faq_q:${r.question}` }));
+    if (step === "confirm")
+      return [
+        { label: "Sí, agendar", action: "agenda_si" },
+        { label: "No por ahora", action: "agenda_no" },
+      ];
     if (step === "done") return [{ label: "Volver al inicio", action: "reset" }];
     return [];
   }, [step, services, sizes, coatTypes, coatCond, faqs]);
 
-  /* acciones de menú */
-  function onClick(action) {
+  /* asegurar guardar lead si aún no (para FAQ/Servicios/cerrar) */
+  async function ensureLeadSaved() {
+    if (leadSavedRef.current) return;
+    if (!leadName.trim() || !phoneValid || !emailValid) return;
+    const res = await apiPost({
+      op: "ensure_lead",
+      conversation_id: conversationRef.current,
+      name: leadName.trim(),
+      phone: phoneNormalized,
+      email: leadEmail.trim(),
+    });
+    if (res && res.ok) leadSavedRef.current = true;
+  }
+
+  /* menú */
+  async function onClick(action) {
+    await ensureLeadSaved();
+
     if (action === "cotizar") {
       setMessages([]); goTo("service");
       pushBot("Perfecto, te ayudo a cotizar. Primero necesito esta info.<br><br><b>1) ¿Qué servicio necesitas?</b>");
       return;
     }
     if (action === "servicios") {
-      setMessages([]);
-      pushBot("📋 <b>Servicios disponibles</b>");
+      setMessages([]); pushBot("📋 <b>Servicios disponibles</b>");
       services.forEach((r) => pushBot(`• <b>${r.label}</b>${r.desc ? " — " + r.desc : ""}`));
       return;
     }
@@ -231,7 +297,7 @@ export default function ChatCotizador({ calendlyUrl, onClose, whatsappUrl }) {
     }
   }
 
-  /* flujo de cotización */
+  /* selecciones cotización */
   function chooseService(label) {
     const row = services.find((r) => (r.label || "").toLowerCase() === label.toLowerCase());
     if (!row) return;
@@ -265,18 +331,21 @@ export default function ChatCotizador({ calendlyUrl, onClose, whatsappUrl }) {
     pushBot("<b>5) ¿Para qué día te gustaría agendar?</b><br><i>(Escribe la fecha abajo y pulsa Enviar)</i>");
   }
 
-  /* input libre para la fecha */
+  /* día + confirmación */
   function sendFree() {
     if (!free.trim()) return;
     pushUser(free.trim());
+
     if (step === "day") {
       const next = { ...ans, day: free.trim() };
       const price = computePriceByRules(next, rules);
       setAns((a) => ({ ...a, day: next.day, price }));
+
       pushBot(
         `🎯 <b>Resumen</b><br>
         • Nombre: ${leadName || "-"}<br>
         • Contacto: ${phoneNormalized || "-"}<br>
+        • Correo: ${leadEmail || "-"}<br>
         • Servicio: ${next.service}<br>
         • Tamaño: ${next.size}<br>
         • Pelo: ${next.coat_type}<br>
@@ -290,15 +359,16 @@ export default function ChatCotizador({ calendlyUrl, onClose, whatsappUrl }) {
     setFree("");
   }
 
-  /* manejar botones */
-  function handleButtonClick(btn) {
+  /* botones */
+  async function handleButtonClick(btn) {
     const { action, label } = btn;
 
     if (action === "reset") {
-      setLeadName(""); setLeadPhone("");
+      setLeadName(""); setLeadPhone(""); setLeadEmail("");
       setAns({ service: null, size: null, coat_type: null, coat_condition: null, day: null, price: 0 });
+      leadSavedRef.current = false;
       setMessages([]); setHistory([]); setStep("lead");
-      pushBot("¡Hola! 👋 Antes de empezar, cuéntame tu <b>nombre</b> y tu <b>WhatsApp</b> (con <b>+56</b>) para registrarte.");
+      pushBot("¡Hola! 👋 Antes de empezar, cuéntame tu <b>nombre</b>, tu <b>WhatsApp</b> (con <b>+56</b>) y tu <b>correo</b> para registrarte.");
       return;
     }
     if (action === "cotizar" || action === "servicios" || action === "faq") return onClick(action);
@@ -307,63 +377,92 @@ export default function ChatCotizador({ calendlyUrl, onClose, whatsappUrl }) {
     if (action.startsWith("coat_type:")) return chooseCoatType(label);
     if (action.startsWith("coat_condition:")) return chooseCoatCond(label);
     if (action.startsWith("faq_q:")) {
-      const row = faqs.find((r) => (r.question || "").toLowerCase() === label.toLowerCase());
+      const row = (faqs || []).find((r) => (r.question || "").toLowerCase() === label.toLowerCase());
       if (row) { pushUser(row.question); pushBot(row.answer); }
       return;
     }
+
     if (action === "agenda_si") {
-      pushBot("¡Genial! Te llevaré a la agenda para reservar tu hora. 📆");
-      if (calendlyUrl) window.open(calendlyUrl, "_blank", "noopener,noreferrer");
+      pushBot("¡Perfecto! 👍 Te transferimos con uno de nuestros especialistas por WhatsApp para agendar tu hora. 💬");
+      await ensureLeadSaved();
+      await apiPost({ op: "agenda_yes", conversation_id: conversationRef.current });
+      if (whatsappUrl) window.open(whatsappUrl, "_blank", "noopener,noreferrer");
       goTo("done"); return;
     }
     if (action === "agenda_no") {
       pushBot("¡Gracias! Te contactaremos por WhatsApp con promociones más adelante. 🐾");
+      await ensureLeadSaved(); // agenda queda "no"
       goTo("done"); return;
     }
   }
 
-  /* pasar del paso lead al menú */
-  function startChat() {
+  /* iniciar chat: guarda lead (agenda=no) + suscribe Mailchimp */
+  async function startChat() {
     const nameOk = !!leadName.trim();
-    if (!nameOk || !phoneValid) {
+    if (!nameOk || !phoneValid || !emailValid) {
       if (!nameOk) pushBot("Por favor ingresa tu <b>nombre</b> 🙏");
-      if (!phoneValid) pushBot("El WhatsApp debe tener formato <b>+56</b> seguido de <b>9 dígitos</b>. Ej: <b>+56912345678</b>.");
+      if (!phoneValid)
+        pushBot("El WhatsApp debe tener formato <b>+56</b> seguido de <b>9 dígitos</b>. Ej: <b>+56912345678</b>.");
+      if (!emailValid)
+        pushBot("Ingresa un <b>correo</b> válido. Ej: <b>tucorreo@ejemplo.com</b>.");
       return;
     }
-    // Guardamos normalizado
     if (phoneNormalized !== leadPhone) setLeadPhone(phoneNormalized);
-    pushUser(`${leadName} — ${phoneNormalized}`);
-    setMessages([]);
-    goTo("menu");
+
+    // 1) Guardar lead (agenda=no)
+    const res = await apiPost({
+      op: "lead",
+      conversation_id: conversationRef.current,
+      name: leadName.trim(),
+      phone: phoneNormalized,
+      email: leadEmail.trim(),
+    });
+    if (res && res.ok) leadSavedRef.current = true;
+
+    // 2) Suscribir a Mailchimp (proxy Apps Script)
+    await apiPost({
+      op: "subscribe",
+      FNAME: leadName.trim(),
+      EMAIL: leadEmail.trim(),
+      PHONE: phoneNormalized,
+    });
+
+    pushUser(`${leadName} — ${phoneNormalized} — ${leadEmail}`);
+    setMessages([]); goTo("menu");
     pushBot("¡Listo, gracias! ¿En qué te puedo ayudar?");
   }
 
-  function askConfirm(type) {
-    setPendingAction(type); // 'close' o 'back'
-    setConfirmExit(true);
-  }
-  function doProceed() { // ejecutar acción original
-    if (pendingAction === "back") goBack();
-    if (pendingAction === "close" && onClose) onClose();
-    setConfirmExit(false);
-    setPendingAction(null);
+  /* modal salida */
+  function askConfirm(type) { setPendingAction(type); setConfirmExit(true); }
+  async function doProceed() {
+    await ensureLeadSaved(); // si no se guardó, guardamos ahora (agenda=no)
+    if (pendingAction === "back") { goBack(); }
+    if (pendingAction === "close" && onClose) { onClose(); }
+    setConfirmExit(false); setPendingAction(null);
   }
   function openWhats() {
     if (whatsappUrl) window.open(whatsappUrl, "_blank", "noopener,noreferrer");
-    // si quieres además cerrar el widget al abrir WhatsApp, descomenta:
-    // if (onClose) onClose();
-    setConfirmExit(false);
-    setPendingAction(null);
+    setConfirmExit(false); setPendingAction(null);
   }
 
   /* UI */
-  if (loading) return <div className="w-full max-w-md mx-auto p-4 rounded-2xl bg-white shadow">Cargando chat…</div>;
-  if (err) return <div className="w-full max-w-md mx-auto p-4 rounded-2xl bg-white shadow text-red-600 text-sm">{err}</div>;
+  if (loading)
+    return (
+      <div className="w-full max-w-md mx-auto p-4 rounded-2xl bg-white shadow">
+        Cargando chat…
+      </div>
+    );
+  if (err)
+    return (
+      <div className="w-full max-w-md mx-auto p-4 rounded-2xl bg-white shadow text-red-600 text-sm">
+        {err}
+      </div>
+    );
 
   return (
     <div className="w-full max-w-md mx-auto bg-gradient-to-br from-violet-500 to-fuchsia-600 p-[6px] rounded-3xl shadow-xl">
       <div className="bg-white rounded-[inherit] p-4 flex flex-col h-[620px] relative">
-        {/* Header con volver y cerrar (iconos blancos, grandes, sin recuadro) */}
+        {/* Header */}
         <div className="relative rounded-2xl p-4 bg-gradient-to-r from-violet-500 to-fuchsia-600 text-white mb-3">
           {/* Volver */}
           <button
@@ -372,8 +471,7 @@ export default function ChatCotizador({ calendlyUrl, onClose, whatsappUrl }) {
             disabled={history.length === 0}
             aria-label="Volver"
             className={
-              "absolute left-3 top-3 p-1 text-white cursor-pointer " +
-              "hover:opacity-90 disabled:opacity-40 disabled:pointer-events-none"
+              "absolute left-3 top-3 p-1 text-white cursor-pointer hover:opacity-90 disabled:opacity-40 disabled:pointer-events-none"
             }
             style={{ background: "transparent", border: 0, boxShadow: "none", outline: "none" }}
           >
@@ -418,7 +516,7 @@ export default function ChatCotizador({ calendlyUrl, onClose, whatsappUrl }) {
               key={i}
               className={
                 m.who === "bot"
-                  ? "bg-gray-50 border border-gray-200 p-3 rounded-2xl max-w-[85%]"
+                  ? "bg-gray-50 border border-gray-200 p-3 rounded-2xl max-w-[85%] text-gray-800"   // 👈 agrega text-gray-800
                   : "bg-violet-100 text-gray-900 p-3 rounded-2xl max-w-[85%] ml-auto"
               }
               dangerouslySetInnerHTML={{ __html: m.html }}
@@ -451,10 +549,25 @@ export default function ChatCotizador({ calendlyUrl, onClose, whatsappUrl }) {
                 Formato requerido: <b>+56</b> seguido de <b>9 dígitos</b> (ej: +56912345678).
               </div>
             )}
+            <input
+              type="email"
+              value={leadEmail}
+              onChange={(e) => setLeadEmail(e.target.value)}
+              placeholder="Tu correo (ej: tucorreo@ejemplo.com)"
+              className={
+                "w-full border rounded-full px-3 py-2 text-sm " +
+                (leadEmail && !emailValid ? "border-red-400" : "border-gray-300")
+              }
+            />
+            {leadEmail && !emailValid && (
+              <div className="text-[11px] text-red-500 px-1">
+                Ingresa un correo válido. Ej: <b>tucorreo@ejemplo.com</b>
+              </div>
+            )}
             <button
               onClick={startChat}
-              disabled={!leadName.trim() || !phoneValid}
-              style={{ backgroundColor: "#AE29FF", opacity: (!leadName.trim() || !phoneValid) ? 0.6 : 1 }}
+              disabled={!leadName.trim() || !phoneValid || !emailValid}
+              style={{ backgroundColor: "#AE29FF", opacity: (!leadName.trim() || !phoneValid || !emailValid) ? 0.6 : 1 }}
               className="w-full px-4 py-2 rounded-full text-white text-sm shadow-lg hover:brightness-110 disabled:cursor-not-allowed"
             >
               Comenzar chat
@@ -462,7 +575,7 @@ export default function ChatCotizador({ calendlyUrl, onClose, whatsappUrl }) {
           </div>
         )}
 
-        {/* Botones (TODOS morados) */}
+        {/* Botones */}
         {step !== "lead" && (
           <div className="flex flex-wrap gap-2 mt-3">
             {buttons.map((b, i) => (
@@ -503,7 +616,7 @@ export default function ChatCotizador({ calendlyUrl, onClose, whatsappUrl }) {
           </div>
         )}
 
-        {/* MODAL de confirmación de salida */}
+        {/* MODAL salida */}
         {confirmExit && (
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center z-50">
             <div className="bg-white w-[92%] max-w-sm rounded-2xl p-5 text-center shadow-2xl">
@@ -526,7 +639,7 @@ export default function ChatCotizador({ calendlyUrl, onClose, whatsappUrl }) {
                   className="flex-1 px-4 py-2 rounded-full text-white font-semibold shadow"
                   style={{ backgroundColor: "#AE29FF" }}
                 >
-                  Salir de todos modos 🥺
+                  🥺 Salir de todos modos
                 </button>
 
                 <button
