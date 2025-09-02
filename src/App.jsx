@@ -6,6 +6,7 @@ import FloatingWhatsApp from "./components/FloatingWhatsapp";
 import Footer from "./components/Footer";
 import "./App.css";
 import Bubbles from "./components/Bubbles";
+import ChatCotizador from "./components/ChatCotizador";
 
 export default function App() {
   return (
