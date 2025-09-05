@@ -516,7 +516,7 @@ export default function ChatCotizador({
               key={i}
               className={
                 m.who === "bot"
-                  ? "bg-gray-50 border border-gray-200 p-3 rounded-2xl max-w-[85%] text-gray-800"   // 👈 agrega text-gray-800
+                  ? "bg-gray-50 border border-gray-200 p-3 rounded-2xl max-w-[85%] text-gray-800"
                   : "bg-violet-100 text-gray-900 p-3 rounded-2xl max-w-[85%] ml-auto"
               }
               dangerouslySetInnerHTML={{ __html: m.html }}
@@ -531,7 +531,9 @@ export default function ChatCotizador({
               value={leadName}
               onChange={(e) => setLeadName(e.target.value)}
               placeholder="Tu nombre"
-              className="w-full border border-gray-300 rounded-full px-3 py-2 text-sm"
+              className="w-full border border-gray-300 rounded-full px-3 py-2 text-sm bg-white text-gray-900 placeholder:text-gray-600 placeholder:opacity-90 caret-violet-600"
+              /* fuerza color en webkit/autofill */
+              style={{ WebkitTextFillColor: "#111827" }}
             />
             <input
               type="tel"
@@ -540,9 +542,10 @@ export default function ChatCotizador({
               onBlur={() => setLeadPhone(normalizePhone(leadPhone))}
               placeholder="Tu WhatsApp (ej: +56912345678)"
               className={
-                "w-full border rounded-full px-3 py-2 text-sm " +
+                "w-full border rounded-full px-3 py-2 text-sm bg-white text-gray-900 placeholder:text-gray-600 placeholder:opacity-90 caret-violet-600 " +
                 (leadPhone && !phoneValid ? "border-red-400" : "border-gray-300")
               }
+              style={{ WebkitTextFillColor: "#111827" }}
             />
             {leadPhone && !phoneValid && (
               <div className="text-[11px] text-red-500 px-1">
@@ -555,9 +558,10 @@ export default function ChatCotizador({
               onChange={(e) => setLeadEmail(e.target.value)}
               placeholder="Tu correo (ej: tucorreo@ejemplo.com)"
               className={
-                "w-full border rounded-full px-3 py-2 text-sm " +
+                "w-full border rounded-full px-3 py-2 text-sm bg-white text-gray-900 placeholder:text-gray-600 placeholder:opacity-90 caret-violet-600 " +
                 (leadEmail && !emailValid ? "border-red-400" : "border-gray-300")
               }
+              style={{ WebkitTextFillColor: "#111827" }}
             />
             {leadEmail && !emailValid && (
               <div className="text-[11px] text-red-500 px-1">
@@ -598,7 +602,8 @@ export default function ChatCotizador({
               value={free}
               onChange={(e) => setFree(e.target.value)}
               placeholder="Escribe la fecha aquí..."
-              className="flex-1 border border-gray-200 rounded-full px-3 py-2 text-sm"
+              className="flex-1 border border-gray-200 rounded-full px-3 py-2 text-sm bg-white text-gray-900 placeholder:text-gray-600 placeholder:opacity-90 caret-violet-600"
+              style={{ WebkitTextFillColor: "#111827" }}
             />
             <button
               onClick={sendFree}
